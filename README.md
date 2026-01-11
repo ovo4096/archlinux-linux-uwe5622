@@ -4,6 +4,8 @@
 
 本驱动已修改以支持 **Linux 6.18.3-1-aarch64-ARCH** 内核。
 
+此驱动专为 **Orange Pi Zero3** 适配，兼容 ARM 架构的 Arch Linux 主线内核。
+
 > ⚠️ 仅在上述内核版本测试通过。
 
 ## 编译
