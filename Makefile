@@ -1,3 +1,8 @@
+# Default configs if not specified
+CONFIG_AW_WIFI_DEVICE_UWE5622 ?= y
+CONFIG_WLAN_UWE5622 ?= y
+CONFIG_TTY_OVERY_SDIO ?= y
+
 obj-$(CONFIG_AW_WIFI_DEVICE_UWE5622) += unisocwcn/
 obj-$(CONFIG_WLAN_UWE5622)    += unisocwifi/
 obj-$(CONFIG_TTY_OVERY_SDIO)  += tty-sdio/

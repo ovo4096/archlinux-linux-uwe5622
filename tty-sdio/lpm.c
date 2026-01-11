@@ -1,5 +1,4 @@
-#include <linux/module.h>
-#include <linux/errno.h>
+#include <linux/module.h>\n#include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/proc_fs.h>
@@ -11,6 +10,7 @@
 #include <linux/seq_file.h>
 #include <linux/version.h>
 #include <linux/export.h>
+#include <linux/device.h>
 #include <marlin_platform.h>
 
 #define VERSION         "marlin2 V0.1"
@@ -112,20 +112,30 @@ int  bluesleep_init(void)
 		retval = -ENOMEM;
 		goto fail;
 	}
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	tx_ws = wakeup_source_register(NULL, "BT_TX_wakelock");
+	rx_ws = wakeup_source_register(NULL, "BT_RX_wakelock");
+#else
 	tx_ws = wakeup_source_create("BT_TX_wakelock");
 	rx_ws = wakeup_source_create("BT_RX_wakelock");
 	wakeup_source_add(tx_ws);
 	wakeup_source_add(rx_ws);
+#endif
 	return 0;
 
 fail:
 	remove_proc_entry("btwrite", sleep_dir);
 	remove_proc_entry("sleep", bluetooth_dir);
 	remove_proc_entry("bluetooth", 0);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	wakeup_source_unregister(tx_ws);
+	wakeup_source_unregister(rx_ws);
+#else
 	wakeup_source_remove(tx_ws);
 	wakeup_source_remove(rx_ws);
 	wakeup_source_destroy(tx_ws);
 	wakeup_source_destroy(rx_ws);
+#endif
 	return retval;
 }
 
@@ -135,10 +145,15 @@ void  bluesleep_exit(void)
 	remove_proc_entry("btwrite", sleep_dir);
 	remove_proc_entry("sleep", bluetooth_dir);
 	remove_proc_entry("bluetooth", 0);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	wakeup_source_unregister(tx_ws);
+	wakeup_source_unregister(rx_ws);
+#else
 	wakeup_source_remove(tx_ws);
 	wakeup_source_remove(rx_ws);
 	wakeup_source_destroy(tx_ws);
 	wakeup_source_destroy(rx_ws);
+#endif
 }
 
 /*module_init(bluesleep_init);*/

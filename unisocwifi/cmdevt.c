@@ -1096,7 +1096,7 @@ int sprdwl_set_regdom(struct sprdwl_priv *priv, u8 *regdom, u32 len)
 }
 
 int sprdwl_open_fw(struct sprdwl_priv *priv, u8 *vif_ctx_id,
-		   u8 mode, u8 *mac_addr)
+		   u8 mode, const u8 *mac_addr)
 {
 	struct sprdwl_msg_buf *msg;
 	struct sprdwl_cmd_open *p;

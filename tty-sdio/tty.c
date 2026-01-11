@@ -34,6 +34,8 @@
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/version.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #include <marlin_platform.h>
 #include "tty.h"
@@ -467,8 +469,13 @@ static  int sdio_data_transmit(uint8_t *data, size_t count)
 	return mtty_write(NULL, data, count);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 14, 0)
+static ssize_t mtty_write_plus(struct tty_struct *tty,
+		  const unsigned char *buf, size_t count)
+#else
 static int mtty_write_plus(struct tty_struct *tty,
 		  const unsigned char *buf, int count)
+#endif
 {
 	return sitm_write(buf, count, sdio_data_transmit);
 }
@@ -780,7 +787,11 @@ static void  mtty_shutdown(struct platform_device *pdev)
 }
 #endif
 
-static int  mtty_remove(struct platform_device *pdev)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+static void mtty_remove(struct platform_device *pdev)
+#else
+static int mtty_remove(struct platform_device *pdev)
+#endif
 {
 	struct mtty_device *mtty = platform_get_drvdata(pdev);
 
@@ -799,7 +810,9 @@ static int  mtty_remove(struct platform_device *pdev)
 //#endif
 	bluesleep_exit();
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
 	return 0;
+#endif
 }
 
 static const struct of_device_id mtty_match_table[] = {

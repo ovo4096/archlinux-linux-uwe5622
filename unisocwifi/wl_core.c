@@ -779,7 +779,11 @@ err:
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+static void sprdwl_remove(struct platform_device *pdev)
+#else
 static int sprdwl_remove(struct platform_device *pdev)
+#endif
 {
 	struct sprdwl_intf *intf = platform_get_drvdata(pdev);
 	struct sprdwl_priv *priv = intf->priv;
@@ -800,7 +804,9 @@ static int sprdwl_remove(struct platform_device *pdev)
 	stop_marlin(MARLIN_WIFI);
 	wl_info("%s\n", __func__);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
 	return 0;
+#endif
 }
 
 static const struct of_device_id sprdwl_of_match[] = {

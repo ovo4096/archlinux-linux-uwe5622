@@ -7,6 +7,7 @@
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
+#include <linux/version.h>
 #include <marlin_platform.h>
 #include <wcn_bus.h>
 #include "sdio_int.h"
@@ -316,8 +317,12 @@ int sdio_pub_int_init(int irq)
 	atomic_set(&flag_pub_int_done, 1);
 
 	/*wakeup_source pointer*/
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	sdio_int.pub_int_ws = wakeup_source_register(NULL, "pub_int_ws");
+#else
 	sdio_int.pub_int_ws = wakeup_source_create("pub_int_ws");
 	wakeup_source_add(sdio_int.pub_int_ws);
+#endif
 
 	init_completion(&(sdio_int.pub_int_completion));
 
@@ -349,8 +354,12 @@ int sdio_pub_int_deinit(void)
 	free_irq(sdio_int.pub_int_num, NULL);
 
 	/*wakeup_source pointer*/
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	wakeup_source_unregister(sdio_int.pub_int_ws);
+#else
 	wakeup_source_remove(sdio_int.pub_int_ws);
 	wakeup_source_destroy(sdio_int.pub_int_ws);
+#endif
 
 	SLP_MGR_INFO("%s ok!\n", __func__);
 

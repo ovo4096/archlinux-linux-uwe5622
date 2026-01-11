@@ -8,16 +8,16 @@
 #include "wcn_log.h"
 
 #ifndef CONFIG_CHECK_DRIVER_BY_CHIPID
-#ifdef CONFIG_UWE5621
+#if defined(CONFIG_UWE5621)
 #include "uwe5621_glb.h"
-#endif
-
-#ifdef CONFIG_UWE5622
+#elif defined(CONFIG_UWE5622)
 #include "uwe5622_glb.h"
-#endif
-
-#ifdef CONFIG_UWE5623
+#elif defined(CONFIG_UWE5623)
 #include "uwe5623_glb.h"
+#else
+/* Fallback: define CONFIG_UWE5622 by default if no chip config is defined */
+#define CONFIG_UWE5622
+#include "uwe5622_glb.h"
 #endif
 
 #else

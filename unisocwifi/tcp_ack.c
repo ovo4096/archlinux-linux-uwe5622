@@ -9,6 +9,10 @@
 #include "intf_ops.h"
 #include "tcp_ack.h"
 
+/* Compatibility for kernel >= 6.2 where del_timer was renamed */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+#define del_timer(t) timer_delete(t)
+#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 static void sprdwl_tcp_ack_timeout(struct timer_list *t)
@@ -21,7 +25,7 @@ static void sprdwl_tcp_ack_timeout(unsigned long data)
 	struct sprdwl_tcp_ack_manage *ack_m = NULL;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
-	ack_info = (struct sprdwl_tcp_ack_info *)from_timer(ack_info, t, timer);
+	ack_info = container_of(t, struct sprdwl_tcp_ack_info, timer);
 #else
 	ack_info = (struct sprdwl_tcp_ack_info *)data;
 #endif

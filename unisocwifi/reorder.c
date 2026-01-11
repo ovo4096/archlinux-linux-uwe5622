@@ -23,6 +23,12 @@
 #include "qos.h"
 #include "debug.h"
 
+/* Compatibility for kernel >= 6.2 where timer functions were renamed */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+#define del_timer(t) timer_delete(t)
+#define del_timer_sync(t) timer_delete_sync(t)
+#endif
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 static void ba_reorder_timeout(struct timer_list *t);
 #else
@@ -910,7 +916,7 @@ get_first_seqno_in_buff(struct rx_ba_node_desc *ba_node_desc)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 static void ba_reorder_timeout(struct timer_list *t)
 {
-	struct rx_ba_node *ba_node = from_timer(ba_node, t, reorder_timer);
+	struct rx_ba_node *ba_node = container_of(t, struct rx_ba_node, reorder_timer);
 #else
 static void ba_reorder_timeout(unsigned long data)
 {

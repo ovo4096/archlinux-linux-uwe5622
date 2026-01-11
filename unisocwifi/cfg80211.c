@@ -36,6 +36,11 @@
 #endif
 #include "rx_msg.h"
 
+/* Compatibility for kernel >= 6.2 where del_timer_sync was renamed */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+#define del_timer_sync(t) timer_delete_sync(t)
+#endif
+
 #ifdef DFS_MASTER
 #include "11h.h"
 #endif
@@ -394,7 +399,7 @@ int sprdwl_init_fw(struct sprdwl_vif *vif)
 	struct sprdwl_priv *priv = vif->priv;
 	enum nl80211_iftype type = vif->wdev.iftype;
 	enum sprdwl_mode mode;
-	u8 *mac;
+	const u8 *mac;
 	u8 vif_ctx_id = 0;
 
 	wl_ndev_log(L_DBG, vif->ndev, "%s type %d, mode %d\n", __func__, type,
@@ -962,11 +967,20 @@ err_start:
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 7, 0)
+static int sprdwl_cfg80211_change_beacon(struct wiphy *wiphy,
+					 struct net_device *ndev,
+					 struct cfg80211_ap_update *params)
+{
+	struct sprdwl_vif *vif = netdev_priv(ndev);
+	struct cfg80211_beacon_data *beacon = &params->beacon;
+#else
 static int sprdwl_cfg80211_change_beacon(struct wiphy *wiphy,
 					 struct net_device *ndev,
 					 struct cfg80211_beacon_data *beacon)
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
+#endif
 
 	wl_ndev_log(L_DBG, ndev, "%s\n", __func__);
 #ifdef DFS_MASTER
@@ -1359,7 +1373,7 @@ void sprdwl_sched_scan_done(struct sprdwl_vif *vif, bool abort)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)
 void sprdwl_scan_timeout(struct timer_list *t)
 {
-	struct sprdwl_priv *priv = from_timer(priv, t, scan_timer);
+	struct sprdwl_priv *priv = container_of(t, struct sprdwl_priv, scan_timer);
 #else
 void sprdwl_scan_timeout(unsigned long data)
 {
@@ -2036,7 +2050,11 @@ err:
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+static int sprdwl_cfg80211_set_wiphy_params(struct wiphy *wiphy, int link_id, u32 changed)
+#else
 static int sprdwl_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
+#endif
 {
 	struct sprdwl_priv *priv = wiphy_priv(wiphy);
 	u32 rts = 0, frag = 0;
@@ -2864,11 +2882,19 @@ static void sprdwl_cfg80211_stop_p2p_device(struct wiphy *wiphy,
 		sprdwl_scan_done(vif, true);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+static int sprdwl_cfg80211_tdls_mgmt(struct wiphy *wiphy,
+					 struct net_device *ndev, const u8 *peer,
+					 int link_id, u8 action_code, u8 dialog_token,
+					 u16 status_code,  u32 peer_capability,
+					 bool initiator, const u8 *buf, size_t len)
+#else
 static int sprdwl_cfg80211_tdls_mgmt(struct wiphy *wiphy,
 					 struct net_device *ndev, const u8 *peer,
 					 u8 action_code, u8 dialog_token,
 					 u16 status_code,  u32 peer_capability,
 					 bool initiator, const u8 *buf, size_t len)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct sk_buff *tdls_skb;

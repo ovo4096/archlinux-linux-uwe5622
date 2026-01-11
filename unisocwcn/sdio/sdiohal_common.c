@@ -255,24 +255,36 @@ void sdiohal_wakelock_init(void)
 {
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 	/*wakeup_source pointer*/
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	p_data->tx_ws = wakeup_source_register(NULL, "sdiohal_tx_wakelock");
+	p_data->rx_ws = wakeup_source_register(NULL, "sdiohal_rx_wakelock");
+	p_data->scan_ws = wakeup_source_register(NULL, "sdiohal_scan_wakelock");
+#else
 	p_data->tx_ws = wakeup_source_create("sdiohal_tx_wakelock");
 	wakeup_source_add(p_data->tx_ws);
 	p_data->rx_ws = wakeup_source_create("sdiohal_rx_wakelock");
 	wakeup_source_add(p_data->rx_ws);
 	p_data->scan_ws = wakeup_source_create("sdiohal_scan_wakelock");
 	wakeup_source_add(p_data->scan_ws);
+#endif
 }
 
 void sdiohal_wakelock_deinit(void)
 {
 	struct sdiohal_data_t *p_data = sdiohal_get_data();
 	/*wakeup_source pointer*/
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
+	wakeup_source_unregister(p_data->tx_ws);
+	wakeup_source_unregister(p_data->rx_ws);
+	wakeup_source_unregister(p_data->scan_ws);
+#else
 	wakeup_source_remove(p_data->tx_ws);
 	wakeup_source_destroy(p_data->tx_ws);
 	wakeup_source_remove(p_data->rx_ws);
 	wakeup_source_destroy(p_data->rx_ws);
 	wakeup_source_remove(p_data->scan_ws);
 	wakeup_source_destroy(p_data->scan_ws);
+#endif
 }
 
 /* for callback */

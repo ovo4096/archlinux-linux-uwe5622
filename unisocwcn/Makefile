@@ -10,6 +10,24 @@ BIN2HEX_TOOL := $(PWD)/fw/bin2hex
 firmware_file := $(PWD)/fw/wcnmodem.bin
 firmware_target := $(PWD)/fw/wcnmodem.bin.hex
 
+#### Default config if none specified ######
+# Enable UWE5622 SDIO by default if no specific chip config is set
+ifeq ($(CONFIG_AW_WIFI_DEVICE_UWE5622),y)
+# Already configured
+else ifeq ($(CFG_HI_WIFI_DEVICE_UWE5621),y)
+# Already configured
+else ifeq ($(CFG_AML_WIFI_DEVICE_UWE5622),y)
+# Already configured
+else ifeq ($(CONFIG_RK_WIFI_DEVICE_UWE5622),y)
+# Already configured
+else
+# Default: enable UWE5622 SDIO
+export CONFIG_WCN_SDIO = y
+ccflags-y += -DCONFIG_CHECK_DRIVER_BY_CHIPID
+BSP_CHIP_ID ?= uwe5622
+WCN_HW_TYPE ?= sdio
+endif
+
 #### Global configs for each item ######
 ifeq ($(CFG_HI_WIFI_DEVICE_UWE5621),y)
 export CONFIG_WCN_SDIO = y

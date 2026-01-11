@@ -24,6 +24,14 @@
 #include "intf_ops.h"
 #include "vendor.h"
 #include "work.h"
+
+/* Compatibility for kernel >= 5.15 where dev_addr is const */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+#define SPRDWL_SET_MAC_ADDR(dev, addr) eth_hw_addr_set(dev, addr)
+#else
+#define SPRDWL_SET_MAC_ADDR(dev, addr) memcpy((dev)->dev_addr, addr, ETH_ALEN)
+#endif
+
 #if defined(UWE5621_FTR)
 #include "tx_msg.h"
 #include "rx_msg.h"
@@ -813,7 +821,11 @@ out:
 #define SPRDWLSETCOUNTRY	(SIOCDEVPRIVATE + 5)
 #define SPRDWLSETTLV		(SIOCDEVPRIVATE + 7)
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, void __user *data, int cmd)
+#else
 static int sprdwl_ioctl(struct net_device *ndev, struct ifreq *req, int cmd)
+#endif
 {
 	struct sprdwl_vif *vif = netdev_priv(ndev);
 	struct iwreq *wrq = (struct iwreq *)req;
@@ -944,12 +956,12 @@ static int sprdwl_set_mac(struct net_device *dev, void *addr)
 		if (!is_zero_ether_addr(sa->sa_data)) {
 			vif->has_rand_mac = true;
 			memcpy(vif->random_mac, sa->sa_data, ETH_ALEN);
-			memcpy(dev->dev_addr, sa->sa_data, ETH_ALEN);
+			SPRDWL_SET_MAC_ADDR(dev, sa->sa_data);
 		} else {
 			vif->has_rand_mac = false;
 			netdev_info(dev, "need clear random mac for sta/softap mode\n");
 			memset(vif->random_mac, 0, ETH_ALEN);
-			memcpy(dev->dev_addr, vif->mac, ETH_ALEN);
+			SPRDWL_SET_MAC_ADDR(dev, vif->mac);
 		}
 	}
 	/*return success to pass vts test*/
@@ -964,7 +976,11 @@ static struct net_device_ops sprdwl_netdev_ops = {
 	.ndo_start_xmit = sprdwl_start_xmit,
 	.ndo_get_stats = sprdwl_get_stats,
 	.ndo_tx_timeout = sprdwl_tx_timeout,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+	.ndo_siocdevprivate = sprdwl_ioctl,
+#else
 	.ndo_do_ioctl = sprdwl_ioctl,
+#endif
 	.ndo_set_mac_address = sprdwl_set_mac,
 };
 
@@ -1067,8 +1083,13 @@ static struct notifier_block sprdwl_inet6addr_cb = {
 #if IS_ENABLED(CONFIG_SUNXI_ADDR_MGT)
 extern int get_custom_mac_address(int fmt, char *name, char *addr);
 #endif
-static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
-				u8 *addr)
+
+/* 
+ * Helper function to compute MAC address for a vif.
+ * The computed MAC is stored in 'out_addr' buffer.
+ */
+static void sprdwl_compute_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
+				    u8 *out_addr)
 {
 	int default_mac_valid = 0;
 	enum nl80211_iftype type = vif->wdev.iftype;
@@ -1079,21 +1100,23 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 	(void)addr_str;
 	(void)ret;
 
-	if (!addr) {
+	if (!out_addr) {
 		return;
 	}
 #if IS_ENABLED(CONFIG_SUNXI_ADDR_MGT)
 	get_custom_mac_address(1, "wifi", custom_mac);
 #endif
 
+	memset(out_addr, 0, ETH_ALEN);
+
 	if (is_valid_ether_addr(custom_mac)) {
-		ether_addr_copy(addr, custom_mac);
+		ether_addr_copy(out_addr, custom_mac);
 	} else if (priv && is_valid_ether_addr(priv->mac_addr)) {
-		ether_addr_copy(addr, priv->mac_addr);
+		ether_addr_copy(out_addr, priv->mac_addr);
 	} else if (pending_addr && is_valid_ether_addr(pending_addr)) {
-		ether_addr_copy(addr, pending_addr);
+		ether_addr_copy(out_addr, pending_addr);
 	} else if (priv && is_valid_ether_addr(priv->default_mac)) {
-		ether_addr_copy(addr, priv->default_mac);
+		ether_addr_copy(out_addr, priv->default_mac);
 		default_mac_valid = 1;
 	} else {
 		printk("no valid mac address!\n");
@@ -1101,25 +1124,42 @@ static void sprdwl_set_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
 
 	switch (type) {
 	case NL80211_IFTYPE_STATION:
-		ether_addr_copy(priv->default_mac, addr);
+		ether_addr_copy(priv->default_mac, out_addr);
 		break;
 	case NL80211_IFTYPE_AP:
 		if (default_mac_valid) {
-			addr[0] ^= 0x10;
-			addr[0] |= 0x2;
+			out_addr[0] ^= 0x10;
+			out_addr[0] |= 0x2;
 		} else
-			ether_addr_copy(priv->default_mac, addr);
+			ether_addr_copy(priv->default_mac, out_addr);
 
 		break;
 	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_P2P_GO:
-		addr[4] ^= 0x80;
+		out_addr[4] ^= 0x80;
+		fallthrough;
 	case NL80211_IFTYPE_P2P_DEVICE:
-		addr[0] ^= 0x02;
+		out_addr[0] ^= 0x02;
 		break;
 	default:
 		break;
 	}
+}
+
+/* 
+ * Set MAC address for a net_device.
+ * For kernel >= 5.15, we use eth_hw_addr_set().
+ */
+static void sprdwl_set_ndev_mac_addr(struct sprdwl_vif *vif, u8 *pending_addr,
+				     struct net_device *ndev)
+{
+	u8 addr[ETH_ALEN];
+
+	if (!ndev)
+		return;
+
+	sprdwl_compute_mac_addr(vif, pending_addr, addr);
+	SPRDWL_SET_MAC_ADDR(ndev, addr);
 }
 void init_scan_list(struct sprdwl_vif *vif)
 {
@@ -1359,7 +1399,7 @@ static struct sprdwl_vif *sprdwl_register_wdev(struct sprdwl_priv *priv,
 	wdev->wiphy = priv->wiphy;
 	wdev->iftype = type;
 
-	sprdwl_set_mac_addr(vif, addr, wdev->address);
+	sprdwl_compute_mac_addr(vif, addr, wdev->address);
 	wl_info("iface '%s'(%pM) type %d added\n", name, wdev->address, type);
 
 	return vif;
@@ -1444,8 +1484,10 @@ static struct sprdwl_vif *sprdwl_register_netdev(struct sprdwl_priv *priv,
 	ndev->features |= NETIF_F_SG;
 	SET_NETDEV_DEV(ndev, wiphy_dev(priv->wiphy));
 
-	sprdwl_set_mac_addr(vif, addr, ndev->dev_addr);
+	sprdwl_set_ndev_mac_addr(vif, addr, ndev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 17, 0)
 	ether_addr_copy(ndev->dev_addr_shadow, ndev->dev_addr);
+#endif
 
 #ifdef CONFIG_P2P_INTF
 	if (type == NL80211_IFTYPE_P2P_DEVICE)

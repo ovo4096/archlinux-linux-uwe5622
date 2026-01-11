@@ -5,6 +5,7 @@
 #include <linux/module.h>
 #include <linux/poll.h>
 #include <linux/slab.h>
+#include <linux/version.h>
 #include <linux/wait.h>
 
 #include "rdc_debug.h"
@@ -260,7 +261,11 @@ int log_cdev_init(void)
 	struct wcnlog_dev *dev[WCN_LOG_MAX_MINOR] = {NULL};
 
 	WCN_DEBUG("log_cdev_init\n");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	wcnlog_class = class_create("slog_wcn");
+#else
 	wcnlog_class = class_create(THIS_MODULE, "slog_wcn");
+#endif
 	if (IS_ERR(wcnlog_class))
 		return PTR_ERR(wcnlog_class);
 

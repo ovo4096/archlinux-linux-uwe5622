@@ -78,3 +78,6 @@ clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
 	$(RM) Module.markers
 	$(RM) modules.order
+
+ccflags-y += -I$(src)/../unisocwcn/include
+ccflags-y += -I$(src)/../unisocwcn/include/vendor

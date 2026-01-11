@@ -104,8 +104,13 @@ static int sprdwl_cmd_set_psm_cap(struct sprdwl_vif *vif)
 	return ret;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+static int sprdwl_npi_pre_doit(const struct genl_split_ops *ops,
+				   struct sk_buff *skb, struct genl_info *info)
+#else
 static int sprdwl_npi_pre_doit(const struct genl_ops *ops,
 				   struct sk_buff *skb, struct genl_info *info)
+#endif
 {
 	struct net_device *ndev;
 	struct sprdwl_vif *vif;
@@ -135,8 +140,13 @@ static int sprdwl_npi_pre_doit(const struct genl_ops *ops,
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+static void sprdwl_npi_post_doit(const struct genl_split_ops *ops,
+				 struct sk_buff *skb, struct genl_info *info)
+#else
 static void sprdwl_npi_post_doit(const struct genl_ops *ops,
 				 struct sk_buff *skb, struct genl_info *info)
+#endif
 {
 	if (info->user_ptr[0])
 		dev_put(info->user_ptr[0]);
@@ -295,6 +305,9 @@ static struct genl_family sprdwl_nl_genl_family = {
 	.name = "SPRDWL_NL",
 	.version = 1,
 	.maxattr = SPRDWL_NL_ATTR_MAX,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
+	.policy = sprdwl_genl_policy,
+#endif
 	.pre_doit = sprdwl_npi_pre_doit,
 	.post_doit = sprdwl_npi_post_doit,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 14, 0)

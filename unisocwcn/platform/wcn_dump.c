@@ -19,6 +19,7 @@
 #include "wcn_log.h"
 #include "wcn_misc.h"
 #include "wcn_glb_reg.h"
+#include "wcn_glb.h"
 #ifdef CONFIG_WCN_USB
 #include "./usb_boot.h"
 #endif
